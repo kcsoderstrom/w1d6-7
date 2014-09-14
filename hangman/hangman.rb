@@ -1,39 +1,30 @@
+require_relative 'player'
+
 class Game
-  attr_reader :dictionary, :secret_word, :revealed, :wrong_guesses
+  attr_reader :revealed, :wrong_guesses, :master, :guesser
 
   MAX_WRONG_GUESSES = 8
 
-  def initialize(file_name='./hangman/dictionary.txt')
-    @dictionary = import_dictionary(file_name)
+  def initialize(master, guesser)
+    @master = master
+    @guesser = guesser
   end
 
-  def set_secret_word
-    begin
-      @secret_word = self.dictionary.sample
-    end until self.secret_word.length > 1
-
-    @revealed = Array.new(self.secret_word.length)
-    @wrong_guesses = []
-  end
-
-  def import_dictionary(file_name)
-    dictionary_array = File.readlines(file_name).map(&:chomp)
-  end
 
   def play
-    self.set_secret_word
+    initialize_word_blanks(master.set_secret_word_length)
     until self.won?
       prompt
-      guess = gets.chomp
+      guess = guesser.guess
       self.reveal_letters(guess) if guess.length == 1
 
       if guess.length > 1
-        guess == self.secret_word ? self.won : self.lost_single_guess
+        guess == master.correct?(guess) ? self.won : self.lost(:single_guess)
         return
       end
 
       if wrong_guesses.count > MAX_WRONG_GUESSES
-        self.lost_too_many_tries
+        self.lost(:too_many_tries)
         return
       end
     end
@@ -41,14 +32,15 @@ class Game
     self.won
   end
 
+  def initialize_word_blanks(length)
+    @revealed = Array.new(length)
+    @wrong_guesses = []
+  end
+
   def reveal_letters(guess)
-    if secret_word.include?(guess)
-      self.secret_word.each_char.with_index do |letter, i|
-        self.revealed[i] = guess if letter == guess
-      end
-    else
-      self.wrong_guesses << guess
-    end
+    letter_locations = master.letter_locations(guess)
+    wrong_guesses << guess if letter_locations.empty?
+    letter_locations.each { |i| revealed[i] = guess }
   end
 
   def display_word
@@ -62,7 +54,7 @@ class Game
   end
 
   def won?
-    self.revealed.join == self.secret_word
+    !self.revealed.include?(nil)
   end
 
   def play_again?
@@ -73,17 +65,12 @@ class Game
   end
 
   def won
-    puts "You won! The word was #{self.secret_word}."
+    puts "#{guesser.name} won! The word was #{self.revealed.join}."
     self.play if play_again?
   end
 
-  def lost_single_guess
-    puts "No, the word was #{secret_word}."
-    self.play if play_again?
-  end
-
-  def lost_too_many_tries
-    puts "You took too many tries. The word was #{secret_word}."
+  def lost(losing_condition)
+    master.end_game(losing_condition)
     self.play if play_again?
   end
 
