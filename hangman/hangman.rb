@@ -1,10 +1,19 @@
 class Game
-  attr_reader :dictionary, :secret_word, :revealed
+  attr_reader :dictionary, :secret_word, :revealed, :wrong_guesses
 
-  def initialize(file_name='dictionary.txt')
+  MAX_WRONG_GUESSES = 8
+
+  def initialize(file_name='./hangman/dictionary.txt')
     @dictionary = import_dictionary(file_name)
-    @secret_word = self.dictionary.sample
+  end
+
+  def set_secret_word
+    begin
+      @secret_word = self.dictionary.sample
+    end until self.secret_word.length > 1
+
     @revealed = Array.new(self.secret_word.length)
+    @wrong_guesses = []
   end
 
   def import_dictionary(file_name)
@@ -12,18 +21,70 @@ class Game
   end
 
   def play
+    self.set_secret_word
+    until self.won?
+      prompt
+      guess = gets.chomp
+      self.reveal_letters(guess) if guess.length == 1
 
+      if guess.length > 1
+        guess == self.secret_word ? self.won : self.lost_single_guess
+        return
+      end
+
+      if wrong_guesses.count > MAX_WRONG_GUESSES
+        self.lost_too_many_tries
+        return
+      end
+    end
+
+    self.won
   end
 
-  def update_word(guess)
-    raise 'Guess a letter.' unless guess.is_a?(String) && guess.length == 1
-    self.secret_word.split(//).each_with_index do |letter, i|
-      self.revealed[i] = guess if letter == guess
+  def reveal_letters(guess)
+    if secret_word.include?(guess)
+      self.secret_word.each_char.with_index do |letter, i|
+        self.revealed[i] = guess if letter == guess
+      end
+    else
+      self.wrong_guesses << guess
     end
   end
 
   def display_word
     puts self.revealed.map{ |letter| letter || '_' }.join
+  end
+
+  def prompt
+    print 'Secret word: '
+    self.display_word
+    print '> '
+  end
+
+  def won?
+    self.revealed.join == self.secret_word
+  end
+
+  def play_again?
+    puts "Play again?"
+    print '> '
+    y_or_n = gets.chomp
+    y_or_n == 'y'
+  end
+
+  def won
+    puts "You won! The word was #{self.secret_word}."
+    self.play if play_again?
+  end
+
+  def lost_single_guess
+    puts "No, the word was #{secret_word}."
+    self.play if play_again?
+  end
+
+  def lost_too_many_tries
+    puts "You took too many tries. The word was #{secret_word}."
+    self.play if play_again?
   end
 
 end
