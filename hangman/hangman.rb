@@ -36,8 +36,8 @@ if __FILE__ == $PROGRAM_NAME
 
       human = HumanPlayer.new(players[0])
       computer = ComputerPlayer.new
-      master, guesser = human, computer if role == master
-      master, guesser = computer, human unless role == master
+      master, guesser = human, computer if role == 'master'
+      master, guesser = computer, human unless role == 'master'
 
       setup_done = true
       hangman = Game.new(master,guesser)

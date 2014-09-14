@@ -1,3 +1,5 @@
+require 'set'
+
 class Game
   attr_reader :revealed, :wrong_guesses, :master, :guesser
 
@@ -11,28 +13,37 @@ class Game
 
   def play
     initialize_word_blanks(master.set_secret_word_length)
-    until self.won?
+    while true
       prompt
-      guess = guesser.guess
-      self.reveal_letters(guess) if guess.length == 1
+      guess = guesser.guess(self.revealed)
+      guess_type = parse(guess)
 
-      if guess.length > 1
-        guess == master.correct?(guess) ? self.won : self.lost(:single_guess)
+      case guess_type
+      when :single_letter
+        self.reveal_letters(guess)
+        if wrong_guesses.count > MAX_WRONG_GUESSES
+          self.lost(:too_many_tries)
+          return
+        end
+      when :full_word
+        master.correct?(guess) ? self.won(guess) : self.lost(:single_guess)
         return
-      end
-
-      if wrong_guesses.count > MAX_WRONG_GUESSES
-        self.lost(:too_many_tries)
+      when :give_up
+        self.lost(:give_up)
         return
       end
     end
+  end
 
-    self.won
+  def parse(guess)
+    return :give_up if guess == :give_up
+    return :single_letter if guess.length == 1
+    return :full_word if guess.length > 1
   end
 
   def initialize_word_blanks(length)
     @revealed = Array.new(length)
-    @wrong_guesses = []
+    @wrong_guesses = Set.new
   end
 
   def reveal_letters(guess)
@@ -42,12 +53,14 @@ class Game
   end
 
   def display_word
-    puts self.revealed.map{ |letter| letter || '_' }.join
+    print self.revealed.map{ |letter| letter || '_' }.join
   end
 
   def prompt
-    print 'Secret word: '
+    print 'So far: '
     self.display_word
+    print "\t"
+    puts "Remaining lives: #{MAX_WRONG_GUESSES - wrong_guesses.count + 1}"
     print '> '
   end
 
@@ -62,14 +75,20 @@ class Game
     y_or_n == 'y'
   end
 
-  def won
-    puts "#{guesser.name} won! The word was #{self.revealed.join}."
-    self.play if play_again?
+  def won(final_word)
+    puts "#{guesser.name} won! The word was #{final_word}."
+    if play_again?
+      self.guesser.clear_values
+      self.play
+    end
   end
 
   def lost(losing_condition)
     master.end_game(losing_condition)
-    self.play if play_again?
+    if play_again?
+      self.guesser.clear_values
+      self.play
+    end
   end
 
 end
