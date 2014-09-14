@@ -12,7 +12,7 @@ end
 class ComputerPlayer < Player
   attr_reader :secret_word, :dictionary, :name
 
-  def initialize(name = 'Kasih', file_name='./hangman/dictionary.txt')
+  def initialize(name = 'Kasih', file_name='./dictionary.txt')
     @name = name
     @dictionary = import_dictionary(file_name)
   end

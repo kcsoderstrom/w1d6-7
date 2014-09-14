@@ -1,77 +1,59 @@
-require_relative 'player'
+if __FILE__ == $PROGRAM_NAME
+  require_relative 'player'
+  require_relative 'game'
 
-class Game
-  attr_reader :revealed, :wrong_guesses, :master, :guesser
+  setup_done = false
+  begin
+    puts "Who is playing today?"
+    print '> '
+    players = gets.chomp.split(',').map(&:strip)
+    if players.count == 2
+      begin
+        puts "Who is master today?"
+        print '> '
+        master_name = gets.chomp
+        unless players.include?(master_name)
+          puts "Is that #{players[0]} or #{players[1]}?"
+        end
+      end until players.include?(master_name)
+      guesser_name = players.delete(master_name)[0]
 
-  MAX_WRONG_GUESSES = 8
+      master = HumanPlayer.new(master_name)
+      guesser = HumanPlayer.new(guesser_name)
 
-  def initialize(master, guesser)
-    @master = master
-    @guesser = guesser
-  end
+      setup_done = true
+      hangman = Game.new(master,guesser)
 
+    elsif players.count == 1
+      puts "Would you like to be master or guesser today?"
+      print '> '
+      begin
+        role = gets.chomp.downcase
+        unless ['master','guesser'].include?(role)
+          puts "Is that master or guesser?"
+        end
+      end until ['master','guesser'].include?(role)
 
-  def play
-    initialize_word_blanks(master.set_secret_word_length)
-    until self.won?
-      prompt
-      guess = guesser.guess
-      self.reveal_letters(guess) if guess.length == 1
+      human = HumanPlayer.new(players[0])
+      computer = ComputerPlayer.new
+      master, guesser = human, computer if role == master
+      master, guesser = computer, human unless role == master
 
-      if guess.length > 1
-        guess == master.correct?(guess) ? self.won : self.lost(:single_guess)
-        return
-      end
+      setup_done = true
+      hangman = Game.new(master,guesser)
 
-      if wrong_guesses.count > MAX_WRONG_GUESSES
-        self.lost(:too_many_tries)
-        return
-      end
+    elsif players.count == 0
+      puts "Pit two computer players against each other?"
+      print '> '
+      response = gets.chomp
+
+      setup_done = response.downcase == 'y' || response.downcase == 'yes'
+      setup_done ? hangman = Game.new : next
+
+    else
+      puts "Two players or two teams only! That is the nature of hangman!"
     end
+  end until setup_done
 
-    self.won
-  end
-
-  def initialize_word_blanks(length)
-    @revealed = Array.new(length)
-    @wrong_guesses = []
-  end
-
-  def reveal_letters(guess)
-    letter_locations = master.letter_locations(guess)
-    wrong_guesses << guess if letter_locations.empty?
-    letter_locations.each { |i| revealed[i] = guess }
-  end
-
-  def display_word
-    puts self.revealed.map{ |letter| letter || '_' }.join
-  end
-
-  def prompt
-    print 'Secret word: '
-    self.display_word
-    print '> '
-  end
-
-  def won?
-    !self.revealed.include?(nil)
-  end
-
-  def play_again?
-    puts "Play again?"
-    print '> '
-    y_or_n = gets.chomp
-    y_or_n == 'y'
-  end
-
-  def won
-    puts "#{guesser.name} won! The word was #{self.revealed.join}."
-    self.play if play_again?
-  end
-
-  def lost(losing_condition)
-    master.end_game(losing_condition)
-    self.play if play_again?
-  end
-
+  hangman.play
 end
