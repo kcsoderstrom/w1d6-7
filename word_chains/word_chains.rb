@@ -1,7 +1,7 @@
 require 'set'
 
 class WordChainer
-  attr_reader :dictionary, :n_length_dictionary, :current_words, :all_seen_words
+  attr_reader :dictionary, :n_length_dict, :current_words, :all_seen_words
 
   def initialize(file_name = 'dictionary.txt')
     @dictionary = Set.new(File.readlines(file_name).map(&:chomp))
@@ -9,29 +9,43 @@ class WordChainer
   end
 
   def run(source, target)
-    @current_words = [source]
-    @all_seen_words = Set.new([source])
+    @current_words = Set.new([source])
+    @all_seen_words = Hash.new
+    @all_seen_words[source] = nil
 
     until self.current_words.empty?
-      explore_current_words
+      @current_words = explore_current_words(target)
+      break if self.current_words.include?(target)
     end
 
+    path = build_path(target)
+    print build_path(target) unless path.length == 1
+    print "No path exists." if path.length == 1
+  end
 
+  def build_path(target)
+    return [] if target == nil
+    path = build_path(self.all_seen_words[target]) + [target]
   end
 
 
-  def explore_current_words
+  def explore_current_words(target)
     new_current_words = []
+
     self.current_words.each do |current_word|
+
       adjacent_words(current_word).each do |adj_word|
-        unless self.all_seen_words.include?(adj_word)
-          @all_seen_words << adj_word
+
+        unless self.all_seen_words.has_key?(adj_word)
+          @all_seen_words [adj_word] = current_word
           new_current_words << adj_word
+
+          return new_current_words if adj_word == target
         end
       end
     end
-    puts new_current_words
-    @current_words = new_current_words
+
+    new_current_words
   end
 
 
